@@ -2,26 +2,30 @@ package dao.warehouse;
 
 import dao.ObjectDBIO;
 import dto.warehouse.Warehouse;
-import java.sql.Connection;
+import java.util.ArrayList;
 
 public class WarehouseDao extends ObjectDBIO {
 
-  @Override
-  public Connection open() {
-    return super.open();
-  }
-
-  @Override
-  public void close(Connection connection) {
-    super.close(connection);
-  }
-
-  public boolean registerWh() {
-    String query =
+  public boolean registerWh(Warehouse warehouse) {
+    String query = "INSERT " + warehouse + " VALUES(null, ?,?,?,?,?,?)";
     return true;
   }
 
-  public Warehouse readWh() {
+  public String selectWh(ArrayList<Warehouse> warehouseList, Warehouse warehouse) {
+    String query = "SELECT * from " + warehouseList + " where id = " + warehouse.getId();
+    executeQuery(query);
+    return warehouse.toString();
+  }
 
+  public boolean updateWh() {
+    return false;
+  }
+
+  public boolean deleteWh() {
+    return false;
+  }
+
+  public void filterBy() {
+    String query = ""
   }
 }
