@@ -1,5 +1,5 @@
 package dto.client;
 
-public class Client {
+public class Product {
 
 }

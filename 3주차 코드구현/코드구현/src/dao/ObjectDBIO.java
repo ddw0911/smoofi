@@ -1,31 +1,46 @@
 package dao;
 
+import static vo.WMSMenu.showMenu;
+
+import com.mysql.cj.x.protobuf.MysqlxPrepare.Prepare;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import lombok.Data;
 
 @Data
 public class ObjectDBIO {
-  private String MYSQL_DRIVER;
-  private String MYSQL_URL = "jdbc:mysql://localhost:3306/wms";
-  private String MYSQL_ID;
-  private String MYSQL_PW;
+  private static String MYSQL_URL = "jdbc:mysql://localhost:3306/wms";
+  private static String MYSQL_ID = "smoofi";
+  private static String MYSQL_PW = "smoofi";
+  private static Connection connection;
+  private static PreparedStatement pstmt;
+
 
   public static void startWMS() {
-    String query = "CREATE table ? (id unsigned auto_increment not null, name varchar(20) not null, location varchar(50) not null, contact varchar(20) not null, capacity int not null, type varchar(50), manager varchar(20) not null);";
+    open();
+    showMenu();
+    close(connection);
   }
 
-  public Connection open() {
+  public static void executeQuery(String query) {
     try {
-      Connection connection = DriverManager.getConnection(MYSQL_URL, MYSQL_ID, MYSQL_PW);
-      return connection;
+      pstmt = connection.prepareStatement(query);
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
   }
 
-  public void close(Connection connection) {
+  public static Connection open() {
+    try {
+      return DriverManager.getConnection(MYSQL_URL, MYSQL_ID, MYSQL_PW);
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void close(Connection connection) {
     try {
       connection.close();
     } catch (SQLException e) {

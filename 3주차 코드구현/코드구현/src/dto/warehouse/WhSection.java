@@ -1,5 +1,8 @@
 package dto.warehouse;
 
+import lombok.Data;
+
+@Data
 public class WhSection {
   private String sectionId;
   private int capaWidth;
