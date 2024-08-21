@@ -46,7 +46,7 @@ CREATE TABLE `product` (
 
 CREATE TABLE `stock` (
 	`product_lotno`	varchar(30)	NOT NULL,
-	`product_name`	varchar(30)	NOT NULL,
+	`product_name`	VARCHAR(255)	NOT NULL,
 	`total`	int	NOT NULL,
 	`product_id`	varchar(10)	NOT NULL,
 	`section_id`	varchar(20)	NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE `section` (
 	`section_width`	int	NOT NULL,
 	`section_length`	int	NOT NULL,
 	`section_height`	int	NOT NULL,
-	`section_type`	ENUM('냉장',  '냉동', '실온')	NOT NULL,
+	`section_type`	ENUM("냉장",  "냉동", "실온")	NOT NULL,
 	`section_capacity`	int	NOT NULL,
 	`section_note`	varchar(50)	NULL
 );
@@ -148,7 +148,7 @@ CREATE TABLE `release_request` (
 	`customer_address`	VARCHAR(100)	NOT NULL,
 	`customer_phone`	VARCHAR(20)	NOT NULL,
 	`customer_requirement`	VARCHAR(100)	NULL,
-	`release_req_status`	ENUM('승인대기중',  '승인', '거부')	NOT NULL	DEFAULT '승인대기중',
+	`release_req_status`	ENUM("처리중",  "승인", "거절")	NOT NULL,
 	`release_req_note`	VARCHAR(255)	NULL
 );
 
@@ -162,18 +162,18 @@ CREATE TABLE `release_output` (
 CREATE TABLE `waybill` (
 	`waybill_id`	VARCHAR(30)	NOT NULL,
 	`release_id`	VARCHAR(30)	NOT NULL,
-	`delivery_status`	ENUM('배송중', '배송준비중', '배송완료')	NOT NULL	DEFAULT '배송준비중',
+	`delivery_status`	ENUM("배송중","배송준비중","배송완료")	NOT NULL,
 	`departure_date`	DATE	NULL,
-	`waybill_note`	VARCHAR(50)	NULL	DEFAULT ''
+	`waybill_note`	VARCHAR(50)	NULL
 );
 
 CREATE TABLE `dispatch` (
 	`dispatch_id`	VARCHAR(30)	NOT NULL,
-	`vehicle_id`	VARCHAR(15)	NOT NULL	DEFAULT '',
-	`dispatch_status`	ENUM('승인대기중',  '승인', '거부')	NOT NULL	DEFAULT '승인대기중',
-	`member_id`	varchar(20)	NOT NULL	DEFAULT '',
+	`vehicle_id`	VARCHAR(15)	NOT NULL,
+	`dispatch_status`	ENUM("처리중", "승인", "거절")	NOT NULL,
+	`member_id`	varchar(20)	NOT NULL,
 	`dispatch_regiDate`	DATETIME	NULL,
-	`note`	VARCHAR(50)	NULL	DEFAULT ''
+	`note`	VARCHAR(50)	NULL
 );
 
 CREATE TABLE `task_Log` (
@@ -187,19 +187,19 @@ CREATE TABLE `task_Log` (
 CREATE TABLE `release_inspection` (
 	`release_insptId`	VARCHAR(30)	NOT NULL,
 	`release_reqId`	VARCHAR(30)	NOT NULL,
-	`inspection_result`	ENUM('승인대기중',  '승인', '거부')	NOT NULL	DEFAULT '승인대기중',
-	`member_id`	varchar(20)	NULL	DEFAULT '',
+	`inspection_result`	ENUM("처리중", "승인", "거절")	NOT NULL,
+	`member_id`	varchar(20)	NULL,
 	`inspection_time`	DATETIME	NULL,
-	`inspection_note`	VARCHAR(255)	NULL	DEFAULT ''
+	`inspection_note`	VARCHAR(255)	NULL
 );
 
 CREATE TABLE `releases` (
 	`release_id`	VARCHAR(30)	NOT NULL,
 	`release_reqId`	VARCHAR(30)	NOT NULL,
-	`dispatch_id`	VARCHAR(30)	NOT NULL	DEFAULT '등록대기중',
-	`release_date`	DATE	NULL,
-	`member_id`	varchar(20)	NOT NULL	DEFAULT '',
-	`release_note`	VARCHAR(50)	NULL	DEFAULT ''
+	`dispatch_id`	VARCHAR(30)	NOT NULL,
+	`release_date`	DATE	NOT NULL,
+	`member_id`	varchar(20)	NOT NULL,
+	`release_note`	VARCHAR(50)	NULL
 );
 
 CREATE TABLE `warehouse` (

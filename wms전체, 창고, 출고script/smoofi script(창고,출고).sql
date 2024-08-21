@@ -61,7 +61,7 @@ commit;
 
 
 DELIMITER $$
--- 창고등록 포르시져
+-- 창고등록 프로시져
 CREATE PROCEDURE registerWarehouse(
     IN p_warehouse_id VARCHAR(30),
     IN p_warehouse_name VARCHAR(30),
@@ -115,13 +115,10 @@ AFTER INSERT ON release_request
 FOR EACH ROW
 BEGIN
     -- inspection 테이블에 새로운 튜플을 생성
-    INSERT INTO release_inspection (release_insptId, release_reqId, inspection_result, member_id, inspection_note)
+    INSERT INTO release_inspection (release_insptId, release_reqId)
     VALUES (
-        CONCAT('RI', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                             -- 자동 생성된 ID (UUID를 사용한 예시)
-        NEW.release_reqId,                  -- 방금 등록된 release_request_id
-        '처리중',                    -- 초기 상태는 '처리중'
-        '검수대기중',
-		'검수대기중'
+        CONCAT('RI', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                
+        NEW.release_reqId            -- 방금 등록된 release_request_id
     );
 END $$
 
@@ -164,38 +161,52 @@ END $$
 
 DELIMITER ;
 
-
+drop TRIGGER after_release_inspection_approved;
 DELIMITER $$
--- 출고검수가 통과되면 출고등록되는 트리거
+-- 출고검수가 '승인'되면 출고요청상태를 '승인' 및 출고 및 배차가 '등록'되는 트리거
 CREATE TRIGGER after_release_inspection_approved
 AFTER UPDATE ON release_inspection
 FOR EACH ROW
 BEGIN
+	DECLARE d_dispatch_id varchar(30);
     IF New.inspection_result = '승인' THEN
-    INSERT dispatch (dispatch_id, dispatch_status)
+    -- 출고요청 '승인' 상태로 변경
+    -- UPDATE release_request SET release_req_status='승인' where release_reqId= NEW.release_reqId;
+    -- 출고 및 배차 등록 (동일 배차id 사용)
+    SET d_dispatch_id = CONCAT(DP, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0'));
+    INSERT releases (release_id, release_reqId, dispatch_id, release_date, member_id, release_note)
     VALUES (
-        CONCAT(RL, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                             -- 자동 생성된 ID (UUID를 사용한 예시)
+        CONCAT(RL, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                           
         OLD.release_reqId,                  -- 검수했던 release_request_id
+        d_dispatch_id,   
         now(),
-        NEW.member_id -- 출고지시자
+        NEW.member_id, -- 출고지시자
+        '');
+	
+    INSERT dispatch (dispatch_id)
+    VALUES (
+        d_dispatch_id
     );
     END IF;
 END $$
 
 DELIMITER ;
 
+drop trigger before_release_request_approved;
 
 DELIMITER $$
--- 출고가 등록되면 배차신청이 되는 트리거
-CREATE TRIGGER after_release_registered
-AFTER INSERT ON releases
+-- 출고요청이 승인되기전 검수정보를 수정하는 트리거
+CREATE TRIGGER before_release_request_approved
+BEFORE UPDATE ON release_request
 FOR EACH ROW
 BEGIN
-    INSERT dispatch (dispatch_id, dispatch_status)
-    VALUES (
-        CONCAT(DP, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                             -- 자동 생성된 ID (UUID를 사용한 예시)
-        '처리중' -- 배차등록여부 초기화
-    );
+    IF NEW.release_req_status = '승인' THEN
+        -- 출고검수 시간과 검수자 정보 업데이트
+        UPDATE release_inspection 
+        SET inspection_time = NOW(),
+            member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1)
+        WHERE release_insptId = NEW.release_insptId;
+    END IF;
 END $$
 
 DELIMITER ;
@@ -213,19 +224,20 @@ END $$
 
 DELIMITER ;
 
-
+drop trigger after_dispatch_status_approved;
 DELIMITER $$
--- 배차상태가 "APPROVED" 되면 운송장이 자동등록되는 트리거
+-- 배차상태가 "승인" 되면 배차정보가 '수정' 되고 운송장이 '등록'되는 트리거
 CREATE TRIGGER after_dispatch_status_approved
 AFTER UPDATE ON dispatch
 FOR EACH ROW
 BEGIN
     IF New.dispatch_status = '승인' THEN
-    INSERT waybill (waybill_id, release_id, delivery_status)
+	UPDATE dispatch SET dispatch_regiDate = now() where dispatch_id = OLD.dispatch_id;
+    UPDATE dispatch SET member_id = (select member_id from member where member_type='배송기사' limit 1);
+    INSERT waybill (waybill_id, release_id)
     VALUES (
-        CONCAT(WB, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                             -- 자동 생성된 ID (UUID를 사용한 예시)
-        dispatch.release_id,                  -- 검수했던 release_request_id
-        '배송준비중' -- 배송상태를 배송준비중으로 초기화
+        CONCAT(WB, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                           
+        dispatch.release_id                  -- 검수했던 release_id
     );
     END IF;
 END $$
@@ -234,7 +246,7 @@ DELIMITER ;
 
 
 DELIMITER $$
--- 운송장(waybill)의 출발날짜(departure_date)가 UPDATE 되면 배송상태가 "ON_DELIVERY"로 UPDATE 되는 트리거
+-- 운송장(waybill)의 출발날짜(departure_date)가 UPDATE 되면 배송상태가 "배송중"으로 UPDATE 되는 트리거
 CREATE TRIGGER after_waybill_departure_date_update
 AFTER UPDATE ON waybill
 FOR EACH ROW
