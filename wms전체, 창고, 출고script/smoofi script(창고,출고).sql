@@ -10,7 +10,6 @@ BEGIN
 END$$
 DELIMITER ;
 
-
 DELIMITER $$
 -- 섹션의 수용량이 변경되면 변경값만큼 창고의 가용량도 변경시키는 트리거
 CREATE TRIGGER update_warehouse_available_on_update
@@ -30,18 +29,14 @@ END$$
 
 DELIMITER ;
 
-
+drop trigger before_update_section_capacity;
 DELIMITER $$
--- 섹션의 규격(가로,세로,높이)이 변경되면 수용가능량이 변경되는 트리거
-CREATE TRIGGER update_section_capacity_on_update_section
+CREATE TRIGGER before_update_section_capacity
 BEFORE UPDATE ON section
 FOR EACH ROW
 BEGIN
-    UPDATE section
-    SET NEW.section_capacity = NEW.section_width * NEW.section_height * NEW.section_length
-    WHERE warehouse_id = NEW.warehouse_id;
+    SET NEW.section_capacity = NEW.section_width * NEW.section_height * NEW.section_length;
 END$$
-
 DELIMITER ;
 
 
@@ -160,39 +155,34 @@ BEGIN
 END $$
 
 DELIMITER ;
-
-drop TRIGGER after_release_inspection_approved;
+drop trigger after_release_inspection_approved;
 DELIMITER $$
--- 출고검수가 '승인'되면 출고요청상태를 '승인' 및 출고 및 배차가 '등록'되는 트리거
+-- 출고검수가 '승인'되면 출고요청상태를 '승인' 및 배차 및 출고가 '등록'되는 트리거
 CREATE TRIGGER after_release_inspection_approved
-AFTER UPDATE ON release_inspection
+BEFORE UPDATE ON release_inspection
 FOR EACH ROW
 BEGIN
-	DECLARE d_dispatch_id varchar(30);
     IF New.inspection_result = '승인' THEN
+		SET NEW.inspection_time = NOW(),
+            NEW.member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1);
     -- 출고요청 '승인' 상태로 변경
-    -- UPDATE release_request SET release_req_status='승인' where release_reqId= NEW.release_reqId;
-    -- 출고 및 배차 등록 (동일 배차id 사용)
-    SET d_dispatch_id = CONCAT(DP, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0'));
+		UPDATE release_request SET release_req_status='승인' where release_reqId= NEW.release_reqId;
+    -- 배차 등록
+    INSERT dispatch (dispatch_id)
+    VALUES(dispatch_id = CONCAT('DP', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')));
+    
     INSERT releases (release_id, release_reqId, dispatch_id, release_date, member_id, release_note)
     VALUES (
-        CONCAT(RL, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                           
+        CONCAT('RL', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                           
         OLD.release_reqId,                  -- 검수했던 release_request_id
         d_dispatch_id,   
         now(),
         NEW.member_id, -- 출고지시자
         '');
-	
-    INSERT dispatch (dispatch_id)
-    VALUES (
-        d_dispatch_id
-    );
     END IF;
 END $$
 
 DELIMITER ;
-
-drop trigger before_release_request_approved;
 
 DELIMITER $$
 -- 출고요청이 승인되기전 검수정보를 수정하는 트리거
@@ -200,21 +190,19 @@ CREATE TRIGGER before_release_request_approved
 BEFORE UPDATE ON release_request
 FOR EACH ROW
 BEGIN
-    IF NEW.release_req_status = '승인' THEN
+    IF NEW.inspection = '승인' THEN
         -- 출고검수 시간과 검수자 정보 업데이트
-        UPDATE release_inspection 
         SET inspection_time = NOW(),
-            member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1)
-        WHERE release_insptId = NEW.release_insptId;
+            member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1);
     END IF;
 END $$
 
 DELIMITER ;
 
--- 출고가 삭제되면 자동으로 연계된 배차정보, 운송장정보도 삭제되는 트리거
+-- 배차정보가 삭제되면 자동으로 연계된 출고, 운송장정보도 삭제되는 트리거
 DELIMITER $$
 
-CREATE TRIGGER after_release_delete
+CREATE TRIGGER after_dispatch_delete
 AFTER DELETE ON releases
 FOR EACH ROW
 BEGIN
@@ -224,7 +212,6 @@ END $$
 
 DELIMITER ;
 
-drop trigger after_dispatch_status_approved;
 DELIMITER $$
 -- 배차상태가 "승인" 되면 배차정보가 '수정' 되고 운송장이 '등록'되는 트리거
 CREATE TRIGGER after_dispatch_status_approved

@@ -101,7 +101,7 @@ CREATE TABLE `section` (
 	`section_length`	int	NOT NULL,
 	`section_height`	int	NOT NULL,
 	`section_type`	ENUM('냉장',  '냉동', '실온')	NOT NULL,
-	`section_capacity`	int	NOT NULL,
+	`section_capacity` INT NOT NULL,
 	`section_note`	varchar(50)	NULL
 );
 
@@ -173,7 +173,7 @@ CREATE TABLE `dispatch` (
 	`dispatch_status`	ENUM('승인대기중',  '승인', '거부')	NOT NULL	DEFAULT '승인대기중',
 	`member_id`	varchar(20)	NOT NULL	DEFAULT '',
 	`dispatch_regiDate`	DATETIME	NULL,
-	`note`	VARCHAR(50)	NULL	DEFAULT ''
+	`dispatch_note`	VARCHAR(50)	NULL	DEFAULT ''
 );
 
 CREATE TABLE `task_Log` (
@@ -353,4 +353,3 @@ ALTER TABLE `counting` ADD CONSTRAINT `FK_stock_TO_counting_1` FOREIGN KEY (
 REFERENCES `stock` (
 	`product_lotno`
 );
-
