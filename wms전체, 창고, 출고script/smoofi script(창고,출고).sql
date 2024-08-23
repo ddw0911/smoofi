@@ -28,8 +28,7 @@ BEGIN
 END$$
 
 DELIMITER ;
-
-drop trigger before_update_section_capacity;
+-- 섹션의 길이가 수정되면 수용량도 수정되는 트리거
 DELIMITER $$
 CREATE TRIGGER before_update_section_capacity
 BEFORE UPDATE ON section
@@ -39,9 +38,8 @@ BEGIN
 END$$
 DELIMITER ;
 
-
--- 섹션이 제거되었을때 섹션의 수용량을 다시 창고 가용량에 더해넣는 트리거
 DELIMITER $$
+-- 섹션이 제거되었을때 섹션의 수용량을 다시 창고 가용량에 더해넣는 트리거
 CREATE TRIGGER update_warehouse_available_on_delete
 AFTER DELETE ON section
 FOR EACH ROW
@@ -52,7 +50,6 @@ BEGIN
 END$$
 
 DELIMITER ;
-commit;
 
 
 DELIMITER $$
@@ -155,77 +152,50 @@ BEGIN
 END $$
 
 DELIMITER ;
-drop trigger after_release_inspection_approved;
+
 DELIMITER $$
--- 출고검수가 '승인'되면 출고요청상태를 '승인' 및 배차 및 출고가 '등록'되는 트리거
+-- 출고검수가 '승인'되면 출고요청상태를 '승인' 및 배차가 '등록'되는 트리거
 CREATE TRIGGER after_release_inspection_approved
 BEFORE UPDATE ON release_inspection
 FOR EACH ROW
 BEGIN
     IF New.inspection_result = '승인' THEN
 		SET NEW.inspection_time = NOW(),
-            NEW.member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1);
+            NEW.member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1),
+            NEW.inspection_note = '배차등록됨';
     -- 출고요청 '승인' 상태로 변경
 		UPDATE release_request SET release_req_status='승인' where release_reqId= NEW.release_reqId;
     -- 배차 등록
-    INSERT dispatch (dispatch_id)
-    VALUES(dispatch_id = CONCAT('DP', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')));
-    
-    INSERT releases (release_id, release_reqId, dispatch_id, release_date, member_id, release_note)
-    VALUES (
-        CONCAT('RL', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                           
-        OLD.release_reqId,                  -- 검수했던 release_request_id
-        d_dispatch_id,   
-        now(),
-        NEW.member_id, -- 출고지시자
-        '');
+    INSERT dispatch (dispatch_id, vehicle_id, release_reqId, member_id, dispatch_note)
+    VALUES(
+		CONCAT('DP', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),
+		'',
+        OLD.release_reqId,
+        '',
+        ''
+		);
     END IF;
 END $$
 
 DELIMITER ;
 
 DELIMITER $$
--- 출고요청이 승인되기전 검수정보를 수정하는 트리거
-CREATE TRIGGER before_release_request_approved
-BEFORE UPDATE ON release_request
-FOR EACH ROW
-BEGIN
-    IF NEW.inspection = '승인' THEN
-        -- 출고검수 시간과 검수자 정보 업데이트
-        SET inspection_time = NOW(),
-            member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1);
-    END IF;
-END $$
-
-DELIMITER ;
-
--- 배차정보가 삭제되면 자동으로 연계된 출고, 운송장정보도 삭제되는 트리거
-DELIMITER $$
-
-CREATE TRIGGER after_dispatch_delete
-AFTER DELETE ON releases
-FOR EACH ROW
-BEGIN
-    DELETE FROM dispatch WHERE release_id = OLD.release_id;
-    DELETE FROM waybill WHERE release_id = OLD.release_id;
-END $$
-
-DELIMITER ;
-
-DELIMITER $$
--- 배차상태가 "승인" 되면 배차정보가 '수정' 되고 운송장이 '등록'되는 트리거
+-- 배차상태가 "승인" 되면 배차정보가 '수정' 되고 출고가 '등록'되는 트리거
 CREATE TRIGGER after_dispatch_status_approved
-AFTER UPDATE ON dispatch
+BEFORE UPDATE ON dispatch
 FOR EACH ROW
 BEGIN
     IF New.dispatch_status = '승인' THEN
-	UPDATE dispatch SET dispatch_regiDate = now() where dispatch_id = OLD.dispatch_id;
-    UPDATE dispatch SET member_id = (select member_id from member where member_type='배송기사' limit 1);
-    INSERT waybill (waybill_id, release_id)
+	SET NEW.dispatch_regiDate = now();
+    SET NEW.member_id = (select member_id from member where member_type='배송기사' limit 1);
+    -- 출고 등록
+    INSERT releases (release_id, dispatch_id, release_date, member_id, release_note)
     VALUES (
-        CONCAT(WB, DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                           
-        dispatch.release_id                  -- 검수했던 release_id
-    );
+        CONCAT('RL', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),
+        OLD.dispatch_id,   
+        now(),
+        (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1),
+        '');
     END IF;
 END $$
 
@@ -235,12 +205,23 @@ DELIMITER ;
 DELIMITER $$
 -- 운송장(waybill)의 출발날짜(departure_date)가 UPDATE 되면 배송상태가 "배송중"으로 UPDATE 되는 트리거
 CREATE TRIGGER after_waybill_departure_date_update
-AFTER UPDATE ON waybill
+BEFORE UPDATE ON waybill
 FOR EACH ROW
 BEGIN
     IF New.departure_date is not null THEN
-    UPDATE waybill
-    SET delivery_status = '배송중'
-    where waybill_id = OLD.waybill_id;
+    SET NEW.delivery_status = '배송중';
     END IF;
 END $$
+
+
+DELIMITER $$
+-- 배차정보가 삭제되면 자동으로 연계된 출고, 운송장 정보도 삭제되는 트리거
+CREATE TRIGGER after_dispatch_delete
+AFTER DELETE ON dispatch
+FOR EACH ROW
+BEGIN
+    DELETE FROM releases WHERE dispatch_id = OLD.dispatch_id;
+    DELETE FROM waybill WHERE release_id = (select release_id from releases where dispatch_id = Old.dispatch_id);
+END $$
+
+DELIMITER ;
