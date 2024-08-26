@@ -109,7 +109,7 @@ BEGIN
     -- inspection 테이블에 새로운 튜플을 생성
     INSERT INTO release_inspection (release_insptId, release_reqId)
     VALUES (
-        CONCAT('RI', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),                
+        CONCAT('RI-', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), '-', LPAD(FLOOR(RAND() * 10000), 4, '0')),                
         NEW.release_reqId            -- 방금 등록된 release_request_id
     );
 END $$
@@ -153,6 +153,7 @@ END $$
 
 DELIMITER ;
 
+drop trigger after_release_inspection_approved;
 DELIMITER $$
 -- 출고검수가 '승인'되면 출고요청상태를 '승인' 및 배차가 '등록'되는 트리거
 CREATE TRIGGER after_release_inspection_approved
@@ -161,18 +162,14 @@ FOR EACH ROW
 BEGIN
     IF New.inspection_result = '승인' THEN
 		SET NEW.inspection_time = NOW(),
-            NEW.member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1),
-            NEW.inspection_note = '배차등록됨';
+            NEW.member_id = (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1);
     -- 출고요청 '승인' 상태로 변경
 		UPDATE release_request SET release_req_status='승인' where release_reqId= NEW.release_reqId;
     -- 배차 등록
-    INSERT dispatch (dispatch_id, vehicle_id, release_reqId, member_id, dispatch_note)
+    INSERT dispatch (dispatch_id, release_reqId)
     VALUES(
-		CONCAT('DP', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),
-		'',
-        OLD.release_reqId,
-        '',
-        ''
+		CONCAT('DP-', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), '-', LPAD(FLOOR(RAND() * 10000), 4, '0')),
+        release_reqId
 		);
     END IF;
 END $$
@@ -189,13 +186,13 @@ BEGIN
 	SET NEW.dispatch_regiDate = now();
     SET NEW.member_id = (select member_id from member where member_type='배송기사' limit 1);
     -- 출고 등록
-    INSERT releases (release_id, dispatch_id, release_date, member_id, release_note)
+    INSERT releases (release_id, dispatch_id, release_date, member_id)
     VALUES (
-        CONCAT('RL', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), LPAD(FLOOR(RAND() * 10000), 4, '0')),
+        CONCAT('RL-', DATE_FORMAT(NOW(), '%Y%m%d%H%i'), '-',LPAD(FLOOR(RAND() * 10000), 4, '0')),
         OLD.dispatch_id,   
         now(),
-        (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1),
-        '');
+        (SELECT member_id FROM member WHERE member_type = '관리자' LIMIT 1)
+        );
     END IF;
 END $$
 

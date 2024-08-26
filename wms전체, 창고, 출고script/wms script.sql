@@ -164,17 +164,17 @@ CREATE TABLE `waybill` (
 	`release_id`	VARCHAR(30)	NOT NULL,
 	`delivery_status`	ENUM('배송중', '배송준비중', '배송완료')	NOT NULL	DEFAULT '배송준비중',
 	`departure_date`	DATE	NULL,
-	`waybill_note`	VARCHAR(50)	NULL
+	`waybill_note`	VARCHAR(50)	NULL	DEFAULT ''
 );
 
 CREATE TABLE `dispatch` (
 	`dispatch_id`	VARCHAR(30)	NOT NULL,
-	`vehicle_id`	VARCHAR(15)	NOT NULL,
+	`vehicle_id`	VARCHAR(15)	NOT NULL	DEFAULT '등록대기중',
 	`release_reqId`	VARCHAR(30)	NOT NULL,
 	`dispatch_status`	ENUM('승인대기중',  '승인', '거부')	NOT NULL	DEFAULT '승인대기중',
-	`member_id`	varchar(20)	NOT NULL,
+	`member_id`	varchar(20)	NULL	DEFAULT '',
 	`dispatch_regiDate`	DATETIME	NULL,
-	`dispatch_note`	VARCHAR(50)	NULL
+	`dispatch_note`	VARCHAR(50)	NULL	DEFAULT ''
 );
 
 CREATE TABLE `task_Log` (
@@ -189,17 +189,17 @@ CREATE TABLE `release_inspection` (
 	`release_insptId`	VARCHAR(30)	NOT NULL,
 	`release_reqId`	VARCHAR(30)	NOT NULL,
 	`inspection_result`	ENUM('승인대기중',  '승인', '거부')	NOT NULL	DEFAULT '승인대기중',
-	`member_id`	varchar(20)	NULL,
+	`member_id`	varchar(20)	NULL	DEFAULT '',
 	`inspection_time`	DATETIME	NULL,
-	`inspection_note`	VARCHAR(255)	NULL
+	`inspection_note`	VARCHAR(255)	NULL	DEFAULT ''
 );
 
 CREATE TABLE `releases` (
 	`release_id`	VARCHAR(30)	NOT NULL,
 	`dispatch_id`	VARCHAR(30)	NOT NULL,
 	`release_date`	DATE	NULL,
-	`member_id`	varchar(20)	NOT NULL,
-	`release_note`	VARCHAR(50)	NULL
+	`member_id`	varchar(20)	NULL	DEFAULT '',
+	`release_note`	VARCHAR(50)	NULL	DEFAULT ''
 );
 
 CREATE TABLE `warehouse` (
